@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+z.config({ jitless: true });
+
 const AddNodeSchema = z.object({
   type: z.enum(["add_node"]),
   text: z.string(),
