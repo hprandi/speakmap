@@ -27,6 +27,7 @@ export class Orchestrator {
   private readonly listeners = new Set<OrchestratorListener>();
   private readonly errorMessages = new ErrorMessages();
   private state: OrchestratorState = { status: "idle" };
+  private cycle?: { readonly controller: AbortController };
   private language: SpeechLanguage = "en-US";
 
   constructor({ transcriber, interpreter, graphStore }: OrchestratorDependencies) {
@@ -49,6 +50,7 @@ export class Orchestrator {
 
     try {
       this.language = language;
+      this.cycle = { controller: new AbortController() };
       this.transcriber.start(language);
       this.setState({ status: "listening" });
     } catch (error) {
@@ -57,11 +59,13 @@ export class Orchestrator {
   }
 
   async stopCapture(): Promise<void> {
-    if (this.state.status !== "listening") return;
+    const cycle = this.cycle;
+    if (this.state.status !== "listening" || cycle === undefined) return;
 
     try {
       this.setState({ status: "transcribing" });
       const transcript = (await this.transcriber.stop()).trim();
+      if (cycle !== this.cycle) return;
       if (transcript === "") {
         this.setState({ status: "idle", transcript: this.state.transcript });
         return;
@@ -72,8 +76,9 @@ export class Orchestrator {
         transcript,
         this.graphStore.getGraph(),
         this.language,
-        new AbortController().signal,
+        cycle.controller.signal,
       );
+      if (cycle !== this.cycle) return;
 
       if ("error" in result) {
         this.setState({ status: "idle", transcript, errorMessage: result.error.message });
@@ -83,8 +88,18 @@ export class Orchestrator {
       const applied = this.graphStore.apply(result.operations);
       this.setState(applied.ok ? { status: "idle", transcript } : { status: "idle", transcript, errorMessage: applied.reason });
     } catch (error) {
-      this.fail(error);
+      if (cycle === this.cycle) this.fail(error);
     }
+  }
+
+  /** Esc or the Cancel button: discards the current utterance and returns to idle. */
+  cancel(): void {
+    if (this.state.status === "idle") return;
+
+    this.transcriber.cancel();
+    this.cycle?.controller.abort();
+    this.cycle = undefined;
+    this.setState({ status: "idle", transcript: this.state.transcript });
   }
 
   private fail(error: unknown): void {

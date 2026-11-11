@@ -44,7 +44,7 @@ describe("Orchestrator", () => {
       void orchestrator.stopCapture();
       transcriber.transcript.resolve("what about a subscription");
       await vi.waitFor(() => expect(interpreter.calls).toHaveLength(1));
-      expect(interpreter.calls[0]).toEqual({
+      expect(interpreter.calls[0]).toMatchObject({
         transcript: "what about a subscription",
         graph: graphStore.getGraph(),
         language: "pt-BR",
@@ -213,6 +213,50 @@ describe("Orchestrator", () => {
       expect(orchestrator.getState().errorMessage).toBe(
         "Microphone access is required. Allow it in your browser and try again.",
       );
+    });
+  });
+
+  describe("Cancel the current utterance", () => {
+    it("when cancelling while listening, then recording stops, nothing is interpreted and the status is idle", async () => {
+      const { transcriber, interpreter, orchestrator } = setup();
+      orchestrator.startCapture("en-US");
+      orchestrator.cancel();
+      await orchestrator.stopCapture();
+      expect(transcriber.cancelCount).toBe(1);
+      expect(interpreter.calls).toHaveLength(0);
+      expect(orchestrator.getState().status).toBe("idle");
+    });
+
+    it("when cancelling while transcribing, then a late transcript is ignored", async () => {
+      const { transcriber, interpreter, orchestrator } = setup();
+      orchestrator.startCapture("en-US");
+      const cycle = orchestrator.stopCapture();
+      orchestrator.cancel();
+      transcriber.transcript.resolve("what about a subscription");
+      await cycle;
+      expect(interpreter.calls).toHaveLength(0);
+      expect(orchestrator.getState().status).toBe("idle");
+    });
+
+    it("when cancelling while interpreting, then the request is aborted and a late result leaves the graph unchanged", async () => {
+      const context = setup();
+      const before = context.graphStore.getGraph();
+      const { cycle } = await speakUntilInterpreting(context, "what about a subscription");
+      context.orchestrator.cancel();
+      expect(context.interpreter.calls[0].signal.aborted).toBe(true);
+      context.interpreter.result.resolve({ operations: [{ type: "add_node", text: "Subscription" }] });
+      await cycle;
+      expect(context.graphStore.getGraph()).toBe(before);
+      expect(context.orchestrator.getState().status).toBe("idle");
+    });
+
+    it("when a cancelled interpretation fails afterwards, then no error is shown", async () => {
+      const context = setup();
+      const { cycle } = await speakUntilInterpreting(context, "what about a subscription");
+      context.orchestrator.cancel();
+      context.interpreter.result.reject(new Error("aborted"));
+      await cycle;
+      expect(context.orchestrator.getState().errorMessage).toBeUndefined();
     });
   });
 

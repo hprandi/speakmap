@@ -4,6 +4,7 @@ import { deferred } from "./Deferred";
 
 export class FakeTranscriber implements Transcriber {
   startedWith: SpeechLanguage[] = [];
+  cancelCount = 0;
   transcript = deferred<string>();
 
   isSupported(): boolean {
@@ -15,5 +16,7 @@ export class FakeTranscriber implements Transcriber {
   stop(): Promise<string> {
     return this.transcript.promise;
   }
-  cancel(): void {}
+  cancel(): void {
+    this.cancelCount += 1;
+  }
 }
