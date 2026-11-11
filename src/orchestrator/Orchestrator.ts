@@ -2,6 +2,7 @@ import type { Interpreter } from "../domain/Interpreter";
 import type { SpeechLanguage } from "../domain/SpeechLanguage";
 import type { Transcriber } from "../domain/Transcriber";
 import type { GraphStore } from "../editor/GraphStore";
+import { ErrorMessages } from "./ErrorMessages";
 
 export type CycleStatus = "idle" | "listening" | "transcribing" | "interpreting";
 
@@ -24,6 +25,7 @@ export class Orchestrator {
   private readonly interpreter: Interpreter;
   private readonly graphStore: GraphStore;
   private readonly listeners = new Set<OrchestratorListener>();
+  private readonly errorMessages = new ErrorMessages();
   private state: OrchestratorState = { status: "idle" };
   private language: SpeechLanguage = "en-US";
 
@@ -73,16 +75,20 @@ export class Orchestrator {
         new AbortController().signal,
       );
 
-      if ("operations" in result) this.graphStore.apply(result.operations);
-      this.setState({ status: "idle", transcript });
+      if ("error" in result) {
+        this.setState({ status: "idle", transcript, errorMessage: result.error.message });
+        return;
+      }
+
+      const applied = this.graphStore.apply(result.operations);
+      this.setState(applied.ok ? { status: "idle", transcript } : { status: "idle", transcript, errorMessage: applied.reason });
     } catch (error) {
       this.fail(error);
     }
   }
 
   private fail(error: unknown): void {
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong. Please try again.";
-    this.setState({ status: "idle", transcript: this.state.transcript, errorMessage });
+    this.setState({ status: "idle", transcript: this.state.transcript, errorMessage: this.errorMessages.of(error) });
   }
 
   private setState(state: OrchestratorState): void {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { TranscriptionError } from "../domain/Transcriber";
 import { GraphStore } from "../editor/GraphStore";
 import { FakeInterpreter } from "./fakes/FakeInterpreter";
 import { FakeTranscriber } from "./fakes/FakeTranscriber";
@@ -12,6 +13,15 @@ function setup() {
   const statuses: CycleStatus[] = [];
   orchestrator.subscribe((state) => statuses.push(state.status));
   return { transcriber, interpreter, graphStore, orchestrator, statuses };
+}
+
+/** Runs a cycle up to the interpreter call. The cycle is wrapped because awaiting a returned promise would wait for it. */
+async function speakUntilInterpreting(context: ReturnType<typeof setup>, transcript: string) {
+  context.orchestrator.startCapture("en-US");
+  const cycle = context.orchestrator.stopCapture();
+  context.transcriber.transcript.resolve(transcript);
+  await vi.waitFor(() => expect(context.interpreter.calls).toHaveLength(1));
+  return { cycle };
 }
 
 describe("Orchestrator", () => {
@@ -190,6 +200,19 @@ describe("Orchestrator", () => {
       await cycle;
       orchestrator.startCapture("en-US");
       expect(orchestrator.getState().status).toBe("listening");
+    });
+  });
+
+  describe("Error messages", () => {
+    it("when a step fails, then the user message for that failure is shown", async () => {
+      const { transcriber, orchestrator } = setup();
+      orchestrator.startCapture("en-US");
+      const cycle = orchestrator.stopCapture();
+      transcriber.transcript.reject(new TranscriptionError("microphone-denied"));
+      await cycle;
+      expect(orchestrator.getState().errorMessage).toBe(
+        "Microphone access is required. Allow it in your browser and try again.",
+      );
     });
   });
 
