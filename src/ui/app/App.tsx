@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ApiKeySettings } from "./ApiKeySettings";
-import { ApiKeyStorage } from "./ApiKeyStorage";
+import { ApiKeySettings } from "../features/api-key/ApiKeySettings";
+import { ApiKeyStorage } from "../features/api-key/ApiKeyStorage";
+import { PushToTalkHint } from "../features/push-to-talk/PushToTalkHint";
 
 const apiKeyStorage = new ApiKeyStorage();
 
@@ -22,9 +23,7 @@ export function App() {
     <main className="app">
       <h1>Speakmap</h1>
       <ApiKeySettings apiKey={apiKey} onSave={saveApiKey} onClear={clearApiKey} />
-      <p className="push-to-talk" data-enabled={pushToTalkEnabled}>
-        {pushToTalkEnabled ? "Hold Space and speak." : "Enter your Anthropic API key to start."}
-      </p>
+      <PushToTalkHint enabled={pushToTalkEnabled} />
     </main>
   );
 }
