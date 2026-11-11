@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import type { Interpreter } from "../../domain/Interpreter";
+import type { RendererProps } from "../../domain/RendererProps";
 import type { SpeechLanguage } from "../../domain/SpeechLanguage";
 import type { Transcriber } from "../../domain/Transcriber";
 import type { GraphStore } from "../../editor/GraphStore";
@@ -7,6 +8,7 @@ import { Orchestrator } from "../../orchestrator/Orchestrator";
 import { ApiKeySettings } from "../features/api-key/ApiKeySettings";
 import { ApiKeyStorage } from "../features/api-key/ApiKeyStorage";
 import { CycleStatusBar } from "../features/cycle/CycleStatusBar";
+import { GraphView } from "../features/graph-view/GraphView";
 import { PushToTalkHint } from "../features/push-to-talk/PushToTalkHint";
 import { usePushToTalk } from "../features/push-to-talk/UsePushToTalk";
 import { SpeechLanguageSelector } from "../features/speech-language/SpeechLanguageSelector";
@@ -19,9 +21,10 @@ export type AppProps = {
   readonly transcriber: Transcriber;
   readonly graphStore: GraphStore;
   readonly createInterpreter: (apiKey: string) => Interpreter;
+  readonly Renderer: ComponentType<RendererProps>;
 };
 
-export function App({ transcriber, graphStore, createInterpreter }: AppProps) {
+export function App({ transcriber, graphStore, createInterpreter, Renderer }: AppProps) {
   const [apiKey, setApiKey] = useState(() => apiKeyStorage.get());
   const [language, setLanguage] = useState(() => speechLanguageStorage.get());
   const supported = transcriber.isSupported();
@@ -54,6 +57,7 @@ export function App({ transcriber, graphStore, createInterpreter }: AppProps) {
       <ApiKeySettings apiKey={apiKey} onSave={saveApiKey} onClear={clearApiKey} />
       <SpeechLanguageSelector language={language} onChange={changeLanguage} />
       <PushToTalkHint supported={supported} hasApiKey={hasApiKey} />
+      <GraphView graphStore={graphStore} Renderer={Renderer} />
       <CycleStatusBar orchestrator={orchestrator} />
     </main>
   );
