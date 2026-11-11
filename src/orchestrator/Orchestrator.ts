@@ -43,6 +43,8 @@ export class Orchestrator {
   }
 
   startCapture(language: SpeechLanguage): void {
+    if (this.state.status !== "idle") return;
+
     try {
       this.language = language;
       this.transcriber.start(language);
@@ -57,7 +59,11 @@ export class Orchestrator {
 
     try {
       this.setState({ status: "transcribing" });
-      const transcript = await this.transcriber.stop();
+      const transcript = (await this.transcriber.stop()).trim();
+      if (transcript === "") {
+        this.setState({ status: "idle", transcript: this.state.transcript });
+        return;
+      }
 
       this.setState({ status: "interpreting", transcript });
       const result = await this.interpreter.interpret(

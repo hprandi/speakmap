@@ -89,6 +89,65 @@ describe("Orchestrator", () => {
     });
   });
 
+  describe("Push-to-talk is disabled while processing", () => {
+    it("when capture starts while interpreting, then it is ignored and the status stays interpreting", async () => {
+      const { transcriber, interpreter, orchestrator } = setup();
+      orchestrator.startCapture("en-US");
+      void orchestrator.stopCapture();
+      transcriber.transcript.resolve("what about a subscription");
+      await vi.waitFor(() => expect(interpreter.calls).toHaveLength(1));
+      orchestrator.startCapture("en-US");
+      expect(transcriber.startedWith).toEqual(["en-US"]);
+      expect(orchestrator.getState().status).toBe("interpreting");
+    });
+
+    it("when capture starts while transcribing, then it is ignored", () => {
+      const { transcriber, orchestrator } = setup();
+      orchestrator.startCapture("en-US");
+      void orchestrator.stopCapture();
+      orchestrator.startCapture("en-US");
+      expect(transcriber.startedWith).toEqual(["en-US"]);
+      expect(orchestrator.getState().status).toBe("transcribing");
+    });
+
+    it("when capture starts while listening, then it is ignored", () => {
+      const { transcriber, orchestrator } = setup();
+      orchestrator.startCapture("en-US");
+      orchestrator.startCapture("en-US");
+      expect(transcriber.startedWith).toEqual(["en-US"]);
+    });
+  });
+
+  describe("Empty utterance is discarded", () => {
+    it("when the transcript is empty, then nothing is interpreted and the status goes back to idle", async () => {
+      const { transcriber, interpreter, graphStore, orchestrator } = setup();
+      const before = graphStore.getGraph();
+      orchestrator.startCapture("en-US");
+      const cycle = orchestrator.stopCapture();
+      transcriber.transcript.resolve("");
+      await cycle;
+      expect(interpreter.calls).toHaveLength(0);
+      expect(orchestrator.getState().status).toBe("idle");
+      expect(graphStore.getGraph()).toBe(before);
+    });
+  });
+
+  describe("Undo goes through the normal cycle", () => {
+    it("when the interpreter returns undo, then the last utterance is reverted and the status goes back to idle", async () => {
+      const { transcriber, interpreter, graphStore, orchestrator } = setup();
+      graphStore.apply([{ type: "add_node", text: "Product" }]);
+      graphStore.apply([{ type: "add_node", text: "Subscription" }]);
+      orchestrator.startCapture("en-US");
+      const cycle = orchestrator.stopCapture();
+      transcriber.transcript.resolve("undo that");
+      await vi.waitFor(() => expect(interpreter.calls).toHaveLength(1));
+      interpreter.result.resolve({ operations: [{ type: "undo" }] });
+      await cycle;
+      expect(graphStore.getGraph().nodes.map((node) => node.id)).toEqual([1]);
+      expect(orchestrator.getState().status).toBe("idle");
+    });
+  });
+
   describe("Errors leave the graph unchanged and the app usable", () => {
     it("when transcription fails, then the status goes back to idle and the graph is unchanged", async () => {
       const { transcriber, graphStore, orchestrator } = setup();
