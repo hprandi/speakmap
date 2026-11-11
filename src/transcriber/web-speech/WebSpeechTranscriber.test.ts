@@ -74,12 +74,12 @@ describe("WebSpeechTranscriber", () => {
     });
 
     it("when recognition ends, then stop resolves with the final results joined", async () => {
-      transcriber.start("pt-BR");
-      lastRecognition().say("e se fosse");
-      lastRecognition().say(" por assinatura");
+      transcriber.start("en-US");
+      lastRecognition().say("what about");
+      lastRecognition().say(" a subscription");
       const transcript = transcriber.stop();
       lastRecognition().end();
-      await expect(transcript).resolves.toBe("e se fosse por assinatura");
+      await expect(transcript).resolves.toBe("what about a subscription");
     });
 
     it("when a final result arrives after stop, then it is still included", async () => {

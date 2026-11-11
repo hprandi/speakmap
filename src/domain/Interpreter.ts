@@ -14,3 +14,15 @@ export interface Interpreter {
     signal: AbortSignal,
   ): Promise<InterpretationResult>;
 }
+
+export type InterpretationErrorReason = "malformed-response";
+
+export class InterpretationError extends Error {
+  readonly reason: InterpretationErrorReason;
+
+  constructor(reason: InterpretationErrorReason, message: string = reason) {
+    super(message);
+    this.name = "InterpretationError";
+    this.reason = reason;
+  }
+}
