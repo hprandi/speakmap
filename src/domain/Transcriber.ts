@@ -14,7 +14,7 @@ export type TranscriptionErrorReason =
   | "network"
   | "unknown";
 
-/** Rejection reason of `Transcriber.stop()`, turned into a user message by the Maestro. */
+/** Rejection reason of `Transcriber.stop()`, turned into a user message by the Orchestrator. */
 export class TranscriptionError extends Error {
   readonly reason: TranscriptionErrorReason;
 
