@@ -9,3 +9,5 @@ export type Graph = {
   readonly focusId?: number;
   readonly nextId: number;
 };
+
+export const EMPTY_GRAPH: Graph = { nodes: [], nextId: 1 };
