@@ -1,11 +1,20 @@
 type PushToTalkHintProps = {
-  readonly enabled: boolean;
+  readonly supported: boolean;
+  readonly hasApiKey: boolean;
 };
 
-export function PushToTalkHint({ enabled }: PushToTalkHintProps) {
+export function PushToTalkHint({ supported, hasApiKey }: PushToTalkHintProps) {
+  if (!supported) {
+    return (
+      <p className="push-to-talk-hint" role="alert">
+        This browser cannot transcribe speech. Use Chrome, Edge or Safari.
+      </p>
+    );
+  }
+
   return (
-    <p className="push-to-talk-hint" data-enabled={enabled}>
-      {enabled ? "Hold Space and speak." : "Enter your Anthropic API key to start."}
+    <p className="push-to-talk-hint" data-enabled={hasApiKey}>
+      {hasApiKey ? "Hold Space and speak." : "Enter your Anthropic API key to start."}
     </p>
   );
 }
