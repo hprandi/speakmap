@@ -9,11 +9,11 @@ import { ApiKeyStorage } from "../features/api-key/ApiKeyStorage";
 import { CycleStatusBar } from "../features/cycle/CycleStatusBar";
 import { PushToTalkHint } from "../features/push-to-talk/PushToTalkHint";
 import { usePushToTalk } from "../features/push-to-talk/UsePushToTalk";
+import { SpeechLanguageSelector } from "../features/speech-language/SpeechLanguageSelector";
+import { SpeechLanguageStorage } from "../features/speech-language/SpeechLanguageStorage";
 
 const apiKeyStorage = new ApiKeyStorage();
-
-// The speech language selector comes with task 8.3.
-const LANGUAGE: SpeechLanguage = "en-US";
+const speechLanguageStorage = new SpeechLanguageStorage();
 
 export type AppProps = {
   readonly transcriber: Transcriber;
@@ -23,6 +23,7 @@ export type AppProps = {
 
 export function App({ transcriber, graphStore, createInterpreter }: AppProps) {
   const [apiKey, setApiKey] = useState(() => apiKeyStorage.get());
+  const [language, setLanguage] = useState(() => speechLanguageStorage.get());
   const supported = transcriber.isSupported();
   const hasApiKey = apiKey !== null;
 
@@ -30,11 +31,16 @@ export function App({ transcriber, graphStore, createInterpreter }: AppProps) {
     () => new Orchestrator({ transcriber, graphStore, interpreter: createInterpreter(apiKey ?? "") }),
     [transcriber, graphStore, createInterpreter, apiKey],
   );
-  usePushToTalk(orchestrator, LANGUAGE, supported && hasApiKey);
+  usePushToTalk(orchestrator, language, supported && hasApiKey);
 
   function saveApiKey(key: string) {
     apiKeyStorage.set(key);
     setApiKey(apiKeyStorage.get());
+  }
+
+  function changeLanguage(newLanguage: SpeechLanguage) {
+    speechLanguageStorage.set(newLanguage);
+    setLanguage(newLanguage);
   }
 
   function clearApiKey() {
@@ -46,6 +52,7 @@ export function App({ transcriber, graphStore, createInterpreter }: AppProps) {
     <main className="app">
       <h1>Speakmap</h1>
       <ApiKeySettings apiKey={apiKey} onSave={saveApiKey} onClear={clearApiKey} />
+      <SpeechLanguageSelector language={language} onChange={changeLanguage} />
       <PushToTalkHint supported={supported} hasApiKey={hasApiKey} />
       <CycleStatusBar orchestrator={orchestrator} />
     </main>
