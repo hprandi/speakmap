@@ -24,8 +24,8 @@ const threeNodes: Graph = {
 };
 
 describe("OperationApplier", () => {
-  describe("Nodes have permanent numbered labels", () => {
-    it("when adding to an empty map, then ids are 1, 2 and 3 in creation order", () => {
+  describe("Nodes have permanent numbered ids", () => {
+    it("when adding to an empty graph, then ids are 1, 2 and 3 in creation order", () => {
       let graph = EMPTY_GRAPH;
       for (const text of ["A", "B", "C"]) graph = applied(applier.apply(graph, [add(text)]));
       expect(graph.nodes.map((node) => node.id)).toEqual([1, 2, 3]);
@@ -40,7 +40,7 @@ describe("OperationApplier", () => {
   });
 
   describe("Nodes form a tree with a single root", () => {
-    it("when adding to an empty map, then the node is the root", () => {
+    it("when adding to an empty graph, then the node is the root", () => {
       const graph = applied(applier.apply(EMPTY_GRAPH, [add("Product")]));
       expect(graph.nodes).toEqual([{ id: 1, text: "Product" }]);
     });
@@ -51,7 +51,7 @@ describe("OperationApplier", () => {
       expect(graph.nodes.at(-1)?.parentId).toBeDefined();
     });
 
-    it("when adding two nodes to an empty map, then the second goes under the root", () => {
+    it("when adding two nodes to an empty graph, then the second goes under the root", () => {
       const graph = applied(applier.apply(EMPTY_GRAPH, [add("Product"), add("Pricing")]));
       expect(graph.nodes).toEqual([
         { id: 1, text: "Product" },
@@ -72,7 +72,7 @@ describe("OperationApplier", () => {
     });
   });
 
-  describe("Explicit parent label", () => {
+  describe("Explicit parent id", () => {
     it("when a parent is given, then the node goes under it", () => {
       const graph = applied(applier.apply({ ...threeNodes, focusId: 2 }, [add("Audience", 1)]));
       expect(graph.nodes.at(-1)).toEqual({ id: 4, text: "Audience", parentId: 1 });
@@ -102,7 +102,7 @@ describe("OperationApplier", () => {
       expect(result).toEqual({ ok: false, reason: "Node 9 does not exist." });
     });
 
-    it("when a parent is given on an empty map, then it is rejected", () => {
+    it("when a parent is given on an empty graph, then it is rejected", () => {
       const result = applier.apply(EMPTY_GRAPH, [add("D", 1)]);
       expect(result).toEqual({ ok: false, reason: "Node 1 does not exist." });
     });
