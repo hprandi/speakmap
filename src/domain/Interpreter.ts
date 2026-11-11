@@ -15,7 +15,14 @@ export interface Interpreter {
   ): Promise<InterpretationResult>;
 }
 
-export type InterpretationErrorReason = "malformed-response";
+export type InterpretationErrorReason =
+  | "refused"
+  | "malformed-response"
+  | "invalid-key"
+  | "rate-limited"
+  | "network"
+  | "aborted"
+  | "api-error";
 
 export class InterpretationError extends Error {
   readonly reason: InterpretationErrorReason;

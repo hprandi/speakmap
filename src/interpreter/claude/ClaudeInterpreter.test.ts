@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 import type { Graph } from "../../domain/Graph";
 import { InterpretationError } from "../../domain/Interpreter";
@@ -12,10 +13,21 @@ const graph: Graph = {
   nextId: 3,
 };
 
-function interpreterReturning(parsedOutput: unknown) {
-  const parse = vi.fn().mockResolvedValue({ stop_reason: "end_turn", parsed_output: parsedOutput });
+function interpreterReturning(parsedOutput: unknown, stopReason = "end_turn") {
+  const parse = vi.fn().mockResolvedValue({ stop_reason: stopReason, parsed_output: parsedOutput });
   const client = { messages: { parse } } as unknown as MessagesClient;
   return { interpreter: new ClaudeInterpreter(client), parse };
+}
+
+function interpreterFailing(error: unknown) {
+  const parse = vi.fn().mockRejectedValue(error);
+  const client = { messages: { parse } } as unknown as MessagesClient;
+  return new ClaudeInterpreter(client);
+}
+
+/** Builds the SDK error class the client throws for this HTTP status. */
+function apiError(status: number) {
+  return Anthropic.APIError.generate(status, undefined, "error", new Headers());
 }
 
 function interpret(interpreter: ClaudeInterpreter, transcript = "what about a subscription") {
@@ -115,6 +127,63 @@ describe("ClaudeInterpreter", () => {
       const error = await interpret(interpreter).catch((caught: unknown) => caught);
       expect(error).toBeInstanceOf(InterpretationError);
       expect(error).toMatchObject({ reason: "malformed-response" });
+    });
+
+    it("when the model refuses, then it fails as refused", async () => {
+      const { interpreter } = interpreterReturning(null, "refusal");
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "refused" });
+    });
+
+    it("when the answer is cut off by max tokens, then it fails as a malformed response", async () => {
+      const { interpreter } = interpreterReturning({ result: { operations: [{ type: "undo" }] } }, "max_tokens");
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "malformed-response" });
+    });
+
+    it("when the SDK cannot parse the answer, then it fails as a malformed response", async () => {
+      const interpreter = interpreterFailing(new Anthropic.AnthropicError("Failed to parse structured output"));
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "malformed-response" });
+    });
+
+    it("when the key is rejected, then it fails as an invalid key", async () => {
+      const interpreter = interpreterFailing(apiError(401));
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "invalid-key" });
+    });
+
+    it("when rate limited, then it fails as rate limited", async () => {
+      const interpreter = interpreterFailing(apiError(429));
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "rate-limited" });
+    });
+
+    it("when the network fails, then it fails as a network error", async () => {
+      const interpreter = interpreterFailing(new Anthropic.APIConnectionError({ message: "Connection error." }));
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "network" });
+    });
+
+    it("when the request times out, then it fails as a network error", async () => {
+      const interpreter = interpreterFailing(new Anthropic.APIConnectionTimeoutError());
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "network" });
+    });
+
+    it("when the request is aborted, then it fails as aborted", async () => {
+      const interpreter = interpreterFailing(new Anthropic.APIUserAbortError());
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "aborted" });
+    });
+
+    it("when the API returns another error, then it fails as an API error with the status", async () => {
+      const interpreter = interpreterFailing(apiError(500));
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "api-error", message: expect.stringContaining("500") });
+    });
+
+    it("when an unexpected error is thrown, then it fails as an API error", async () => {
+      const interpreter = interpreterFailing(new TypeError("boom"));
+      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "api-error" });
+    });
+
+    it("when it fails, then the error is an InterpretationError with an app-written message", async () => {
+      const interpreter = interpreterFailing(apiError(401));
+      const error = await interpret(interpreter).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(InterpretationError);
+      expect(error).toMatchObject({ message: "The Anthropic API key is invalid. Check it and try again." });
     });
   });
 });
