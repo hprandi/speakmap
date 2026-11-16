@@ -6,6 +6,8 @@ Follow the contribution guide and every convention below when working in this re
 
 @docs/conventions/naming.md
 
-@docs/conventions/tests.md
-
 @docs/conventions/ui.md
+
+@docs/tests/philosophy.md
+
+@docs/tests/small.md
