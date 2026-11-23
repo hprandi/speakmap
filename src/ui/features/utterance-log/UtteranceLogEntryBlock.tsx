@@ -1,16 +1,25 @@
+import { useState } from "react";
 import type { InterpretationResult } from "../../../domain/Interpreter";
-import type { UtteranceLogEntry } from "../../../orchestrator/utterance-log/UtteranceLogEntry";
+import type { ErrorKind, UtteranceLogEntry } from "../../../orchestrator/utterance-log/UtteranceLogEntry";
+import { FlagErrorDialog } from "./FlagErrorDialog";
 
 type UtteranceLogEntryBlockProps = {
   readonly entry: UtteranceLogEntry;
+  readonly onFlagErrors: (flaggedErrors: readonly ErrorKind[], errorNote: string) => void;
 };
 
-export function UtteranceLogEntryBlock({ entry }: UtteranceLogEntryBlockProps) {
+export function UtteranceLogEntryBlock({ entry, onFlagErrors }: UtteranceLogEntryBlockProps) {
+  const [flagging, setFlagging] = useState(false);
   const hasFlaggedErrors = entry.flaggedErrors.length > 0 || entry.errorNote !== "";
 
   return (
     <article className="utterance-log-entry" data-outcome={entry.outcome}>
-      <h3>{entry.id}</h3>
+      <header className="utterance-log-entry-header">
+        <h3>{entry.id}</h3>
+        <button type="button" onClick={() => setFlagging(true)}>
+          flag error
+        </button>
+      </header>
       {entry.transcript !== undefined && <p>transcript: {entry.transcript}</p>}
       {entry.interpretation !== undefined && (
         <div>
@@ -25,6 +34,7 @@ export function UtteranceLogEntryBlock({ entry }: UtteranceLogEntryBlockProps) {
           {entry.errorNote !== "" && <> (note: {entry.errorNote})</>}
         </p>
       )}
+      {flagging && <FlagErrorDialog entry={entry} onConfirm={onFlagErrors} onClose={() => setFlagging(false)} />}
     </article>
   );
 }

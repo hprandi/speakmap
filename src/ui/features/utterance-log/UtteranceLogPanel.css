@@ -54,8 +54,21 @@
   border-bottom: 1px solid var(--border);
 }
 
+.utterance-log-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.utterance-log-entry-header button {
+  padding: 0 6px;
+  font: 11px var(--mono);
+  cursor: pointer;
+}
+
 .utterance-log-entry h3 {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 13px;
   color: var(--text-h);
 }
@@ -73,4 +86,37 @@
 
 .utterance-log-flagged {
   color: var(--accent);
+}
+
+.flag-error-dialog {
+  text-align: left;
+  font: 14px/1.4 var(--sans);
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.flag-error-dialog h3 {
+  margin: 0 0 8px;
+}
+
+.flag-error-dialog fieldset {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 8px;
+  border: 0;
+  padding: 0;
+}
+
+.flag-error-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flag-error-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
 }

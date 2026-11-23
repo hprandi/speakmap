@@ -28,7 +28,10 @@ export function UtteranceLogPanel({ utteranceLog }: UtteranceLogPanelProps) {
           <header className="utterance-log-header">
             <h2>Utterance log</h2>
           </header>
-          <UtteranceLogEntryList entries={entries} />
+          <UtteranceLogEntryList
+            entries={entries}
+            onFlagErrors={(id, flaggedErrors, errorNote) => utteranceLog.flagErrors(id, flaggedErrors, errorNote)}
+          />
         </aside>
       )}
     </>
