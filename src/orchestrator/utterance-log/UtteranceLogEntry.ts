@@ -25,5 +25,3 @@ export type UtteranceLogEntry = {
   readonly flaggedErrors: readonly ErrorKind[];
   readonly errorNote: string;
 };
-
-export type UtteranceRecord = Omit<UtteranceLogEntry, "id" | "time" | "flaggedErrors" | "errorNote">;

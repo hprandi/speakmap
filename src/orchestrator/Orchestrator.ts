@@ -2,38 +2,34 @@ import type { Interpreter } from "../domain/Interpreter";
 import type { SpeechLanguage } from "../domain/SpeechLanguage";
 import type { Transcriber } from "../domain/Transcriber";
 import type { GraphStore } from "../editor/GraphStore";
+import type { Cycle } from "./Cycle";
 import { ErrorMessages } from "./ErrorMessages";
-
-export type CycleStatus = "idle" | "listening" | "transcribing" | "interpreting";
-
-export type OrchestratorState = {
-  readonly status: CycleStatus;
-  readonly transcript?: string;
-  readonly errorMessage?: string;
-};
-
-export type OrchestratorListener = (state: OrchestratorState) => void;
+import type { OrchestratorListener, OrchestratorState } from "./OrchestratorState";
+import type { UtteranceLog } from "./utterance-log/UtteranceLog";
+import type { UtteranceOutcome } from "./utterance-log/UtteranceLogEntry";
 
 export type OrchestratorDependencies = {
   readonly transcriber: Transcriber;
   readonly interpreter: Interpreter;
   readonly graphStore: GraphStore;
+  readonly utteranceLog: UtteranceLog;
 };
 
 export class Orchestrator {
   private readonly transcriber: Transcriber;
   private readonly interpreter: Interpreter;
   private readonly graphStore: GraphStore;
+  private readonly utteranceLog: UtteranceLog;
   private readonly listeners = new Set<OrchestratorListener>();
   private readonly errorMessages = new ErrorMessages();
   private state: OrchestratorState = { status: "idle" };
-  private cycle?: { readonly controller: AbortController };
-  private language: SpeechLanguage = "en-US";
+  private cycle?: Cycle;
 
-  constructor({ transcriber, interpreter, graphStore }: OrchestratorDependencies) {
+  constructor({ transcriber, interpreter, graphStore, utteranceLog }: OrchestratorDependencies) {
     this.transcriber = transcriber;
     this.interpreter = interpreter;
     this.graphStore = graphStore;
+    this.utteranceLog = utteranceLog;
   }
 
   getState(): OrchestratorState {
@@ -48,13 +44,17 @@ export class Orchestrator {
   startCapture(language: SpeechLanguage): void {
     if (this.state.status !== "idle") return;
 
+    const cycle: Cycle = {
+      abortController: new AbortController(),
+      language,
+      graphBefore: this.graphStore.getGraph()
+    };
+    this.cycle = cycle;
     try {
-      this.language = language;
-      this.cycle = { controller: new AbortController() };
       this.transcriber.start(language);
       this.setState({ status: "listening" });
     } catch (error) {
-      this.fail(error);
+      this.fail(cycle, error);
     }
   }
 
@@ -67,43 +67,52 @@ export class Orchestrator {
       const transcript = (await this.transcriber.stop()).trim();
       if (cycle !== this.cycle) return;
       if (transcript === "") {
-        this.setState({ status: "idle", transcript: this.state.transcript });
+        this.finish(cycle, "empty");
         return;
       }
 
+      cycle.transcript = transcript;
       this.setState({ status: "interpreting", transcript });
       const result = await this.interpreter.interpret(
         transcript,
         this.graphStore.getGraph(),
-        this.language,
-        cycle.controller.signal,
+        cycle.language,
+        cycle.abortController.signal,
       );
       if (cycle !== this.cycle) return;
+      cycle.interpretation = result;
 
       if ("error" in result) {
-        this.setState({ status: "idle", transcript, errorMessage: result.error.message });
+        this.finish(cycle, "interpretation-error", result.error.message);
         return;
       }
 
       const applied = this.graphStore.apply(result.operations);
-      this.setState(applied.ok ? { status: "idle", transcript } : { status: "idle", transcript, errorMessage: applied.reason });
+      if (applied.ok) this.finish(cycle, "applied");
+      else this.finish(cycle, "rejected", applied.reason);
     } catch (error) {
-      if (cycle === this.cycle) this.fail(error);
+      if (cycle === this.cycle) this.fail(cycle, error);
     }
   }
 
-  /** Esc or the Cancel button: discards the current utterance and returns to idle. */
   cancel(): void {
-    if (this.state.status === "idle") return;
+    const cycle = this.cycle;
+    if (this.state.status === "idle" || cycle === undefined) return;
 
     this.transcriber.cancel();
-    this.cycle?.controller.abort();
+    cycle.abortController.abort();
     this.cycle = undefined;
-    this.setState({ status: "idle", transcript: this.state.transcript });
+    this.finish(cycle, "cancelled");
   }
 
-  private fail(error: unknown): void {
-    this.setState({ status: "idle", transcript: this.state.transcript, errorMessage: this.errorMessages.of(error) });
+  private fail(cycle: Cycle, error: unknown): void {
+    const outcome = cycle.transcript === undefined ? "transcription-error" : "interpretation-error";
+    this.finish(cycle, outcome, this.errorMessages.of(error));
+  }
+
+  private finish(cycle: Cycle, outcome: UtteranceOutcome, reason?: string): void {
+    this.utteranceLog.record(cycle, outcome, this.graphStore.getGraph(), reason);
+    this.setState({ status: "idle", transcript: this.state.transcript, errorMessage: reason });
   }
 
   private setState(state: OrchestratorState): void {

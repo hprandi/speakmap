@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import type { Orchestrator, OrchestratorState } from "../../../orchestrator/Orchestrator";
+import type { Orchestrator } from "../../../orchestrator/Orchestrator";
+import type { OrchestratorState } from "../../../orchestrator/OrchestratorState";
 
 export function useOrchestratorState(orchestrator: Orchestrator): OrchestratorState {
   return useSyncExternalStore(

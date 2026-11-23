@@ -5,6 +5,7 @@ import type { SpeechLanguage } from "../../domain/SpeechLanguage";
 import type { Transcriber } from "../../domain/Transcriber";
 import type { GraphStore } from "../../editor/GraphStore";
 import { Orchestrator } from "../../orchestrator/Orchestrator";
+import { UtteranceLog } from "../../orchestrator/utterance-log/UtteranceLog";
 import { ApiKeySettings } from "../features/api-key/ApiKeySettings";
 import { ApiKeyStorage } from "../features/api-key/ApiKeyStorage";
 import { CycleStatusBar } from "../features/cycle/CycleStatusBar";
@@ -30,10 +31,16 @@ export function App({ transcriber, graphStore, createInterpreter, Renderer }: Ap
   const supported = transcriber.isSupported();
   const hasApiKey = apiKey !== null;
 
-  const orchestrator = useMemo(
-    () => new Orchestrator({ transcriber, graphStore, interpreter: createInterpreter(apiKey ?? "") }),
-    [transcriber, graphStore, createInterpreter, apiKey],
-  );
+  const { orchestrator } = useMemo(() => {
+    const utteranceLog = new UtteranceLog();
+    const orchestrator = new Orchestrator({
+      transcriber,
+      graphStore,
+      utteranceLog,
+      interpreter: createInterpreter(apiKey ?? ""),
+    });
+    return { orchestrator, utteranceLog };
+  }, [transcriber, graphStore, createInterpreter, apiKey]);
   usePushToTalk(orchestrator, language, supported && hasApiKey);
 
   function saveApiKey(key: string) {

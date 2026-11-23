@@ -3,13 +3,15 @@ import { TranscriptionError } from "../domain/Transcriber";
 import { GraphStore } from "../editor/GraphStore";
 import { FakeInterpreter } from "./fakes/FakeInterpreter";
 import { FakeTranscriber } from "./fakes/FakeTranscriber";
-import { Orchestrator, type CycleStatus } from "./Orchestrator";
+import { Orchestrator } from "./Orchestrator";
+import type { CycleStatus } from "./OrchestratorState";
+import { UtteranceLog } from "./utterance-log/UtteranceLog";
 
 function setup() {
   const transcriber = new FakeTranscriber();
   const interpreter = new FakeInterpreter();
   const graphStore = new GraphStore();
-  const orchestrator = new Orchestrator({ transcriber, interpreter, graphStore });
+  const orchestrator = new Orchestrator({ transcriber, interpreter, graphStore, utteranceLog: new UtteranceLog() });
   const statuses: CycleStatus[] = [];
   orchestrator.subscribe((state) => statuses.push(state.status));
   return { transcriber, interpreter, graphStore, orchestrator, statuses };

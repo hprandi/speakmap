@@ -1,4 +1,5 @@
-import type { CycleStatus, Orchestrator } from "../../../orchestrator/Orchestrator";
+import type { Orchestrator } from "../../../orchestrator/Orchestrator";
+import type { CycleStatus } from "../../../orchestrator/OrchestratorState";
 import { useOrchestratorState } from "./UseOrchestratorState";
 
 const STATUS_TEXT: Record<CycleStatus, string> = {

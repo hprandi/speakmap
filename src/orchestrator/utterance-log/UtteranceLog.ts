@@ -1,4 +1,6 @@
-import type { ErrorKind, UtteranceLogEntry, UtteranceRecord } from "./UtteranceLogEntry";
+import type { Graph } from "../../domain/Graph";
+import type { Cycle } from "../Cycle";
+import type { ErrorKind, UtteranceLogEntry, UtteranceOutcome } from "./UtteranceLogEntry";
 
 export type UtteranceLogListener = (entries: readonly UtteranceLogEntry[]) => void;
 
@@ -15,11 +17,17 @@ export class UtteranceLog {
     return () => this.listeners.delete(listener);
   }
 
-  record(record: UtteranceRecord): void {
+  record(cycle: Cycle, outcome: UtteranceOutcome, graphAfter: Graph, reason?: string): void {
     const entry: UtteranceLogEntry = {
       id: `U${this.entries.length + 1}`,
       time: new Date().toISOString(),
-      ...record,
+      language: cycle.language,
+      transcript: cycle.transcript,
+      interpretation: cycle.interpretation,
+      outcome,
+      reason,
+      graphBefore: cycle.graphBefore,
+      graphAfter,
       flaggedErrors: [],
       errorNote: "",
     };
