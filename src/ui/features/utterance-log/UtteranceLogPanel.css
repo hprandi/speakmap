@@ -53,3 +53,24 @@
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
 }
+
+.utterance-log-entry h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--text-h);
+}
+
+.utterance-log-entry p {
+  margin: 0;
+}
+
+.utterance-log-entry pre {
+  margin: 0 0 0 2ch;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+}
+
+.utterance-log-flagged {
+  color: var(--accent);
+}

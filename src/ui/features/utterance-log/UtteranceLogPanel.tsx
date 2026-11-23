@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { UtteranceLog } from "../../../orchestrator/utterance-log/UtteranceLog";
 import { useUtteranceLog } from "./UseUtteranceLog";
+import { UtteranceLogEntryBlock } from "./UtteranceLogEntryBlock";
 import "./UtteranceLogPanel.css";
 
 type UtteranceLogPanelProps = {
@@ -30,7 +31,7 @@ export function UtteranceLogPanel({ utteranceLog }: UtteranceLogPanelProps) {
           <ol className="utterance-log-entries">
             {entries.map((entry) => (
               <li key={entry.id}>
-                {entry.id} {entry.outcome}
+                <UtteranceLogEntryBlock entry={entry} />
               </li>
             ))}
           </ol>
