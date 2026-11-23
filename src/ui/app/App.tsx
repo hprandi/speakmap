@@ -14,6 +14,7 @@ import { PushToTalkHint } from "../features/push-to-talk/PushToTalkHint";
 import { usePushToTalk } from "../features/push-to-talk/UsePushToTalk";
 import { SpeechLanguageSelector } from "../features/speech-language/SpeechLanguageSelector";
 import { SpeechLanguageStorage } from "../features/speech-language/SpeechLanguageStorage";
+import { UtteranceLogPanel } from "../features/utterance-log/UtteranceLogPanel";
 
 const apiKeyStorage = new ApiKeyStorage();
 const speechLanguageStorage = new SpeechLanguageStorage();
@@ -31,7 +32,7 @@ export function App({ transcriber, graphStore, createInterpreter, Renderer }: Ap
   const supported = transcriber.isSupported();
   const hasApiKey = apiKey !== null;
 
-  const { orchestrator } = useMemo(() => {
+  const { orchestrator, utteranceLog } = useMemo(() => {
     const utteranceLog = new UtteranceLog();
     const orchestrator = new Orchestrator({
       transcriber,
@@ -66,6 +67,7 @@ export function App({ transcriber, graphStore, createInterpreter, Renderer }: Ap
       <PushToTalkHint supported={supported} hasApiKey={hasApiKey} />
       <GraphView graphStore={graphStore} Renderer={Renderer} />
       <CycleStatusBar orchestrator={orchestrator} />
+      <UtteranceLogPanel utteranceLog={utteranceLog} />
     </main>
   );
 }

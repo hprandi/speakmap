@@ -1,0 +1,55 @@
+.utterance-log-toggle {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.utterance-log {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  width: min(420px, 100vw);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  text-align: left;
+  font: 13px/1.4 var(--mono);
+}
+
+.utterance-log-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 44px 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.utterance-log-header h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.utterance-log-entries {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.utterance-log-entries > li {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
