@@ -13,9 +13,9 @@ const undo: Operation = { type: "undo" };
 function storeWithFiveNodes(): GraphStore {
   const store = new GraphStore();
   store.apply([add("Product")]);
-  store.apply([add("Pricing")]);
-  store.apply([add("Monthly")]);
-  store.apply([add("Annual"), add("Audience", 1)]);
+  store.apply([add("Pricing", 1)]);
+  store.apply([add("Monthly", 2)]);
+  store.apply([add("Annual", 3), add("Audience", 1)]);
   return store;
 }
 
@@ -60,7 +60,7 @@ describe("GraphStore", () => {
     it("when a node was undone, then the next node reuses its id", () => {
       const store = storeWithFiveNodes();
       store.apply([undo]);
-      store.apply([add("Discount")]);
+      store.apply([add("Discount", 1)]);
       expect(store.getGraph().nodes.at(-1)?.id).toBe(4);
     });
 

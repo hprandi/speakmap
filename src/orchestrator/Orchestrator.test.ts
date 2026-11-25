@@ -148,7 +148,7 @@ describe("Orchestrator", () => {
     it("when the interpreter returns undo, then the last utterance is reverted and the status goes back to idle", async () => {
       const { transcriber, interpreter, graphStore, orchestrator } = setup();
       graphStore.apply([{ type: "add_node", text: "Product" }]);
-      graphStore.apply([{ type: "add_node", text: "Subscription" }]);
+      graphStore.apply([{ type: "add_node", text: "Subscription", parentId: 1 }]);
       orchestrator.startCapture("en-US");
       const cycle = orchestrator.stopCapture();
       transcriber.transcript.resolve("undo that");
