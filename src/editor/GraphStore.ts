@@ -24,12 +24,11 @@ export class GraphStore {
   }
 
   apply(operations: readonly Operation[]): ApplyResult {
-    const edits = operations.filter((operation): operation is EditOperation => operation.type !== "undo");
-    const undoCount = operations.length - edits.length;
+    const startsWithUndo = operations[0]?.type === "undo";
+    const rest = startsWithUndo ? operations.slice(1) : operations;
+    if (!rest.every(isEdit)) return this.reject("Undo must come first.");
 
-    if (undoCount === 0) return this.applyEdits(edits);
-    if (operations.length === 1) return this.undo();
-    return this.reject("Undo cannot be combined with other operations.");
+    return startsWithUndo ? this.undoThenApply(rest) : this.applyEdits(rest);
   }
 
   private applyEdits(edits: readonly EditOperation[]): ApplyResult {
@@ -41,12 +40,21 @@ export class GraphStore {
     return result;
   }
 
-  private undo(): ApplyResult {
-    const previous = this.history.pop();
-    if (previous === undefined) return this.reject("There is nothing to undo.");
+  private undoThenApply(edits: readonly EditOperation[]): ApplyResult {
+    const restored = this.history.at(-1);
+    if (restored === undefined) return this.reject("There is nothing to undo.");
 
-    this.setCurrentGraph(previous);
-    return { ok: true, graph: previous };
+    if (edits.length === 0) {
+      this.history.pop();
+      this.setCurrentGraph(restored);
+      return { ok: true, graph: restored };
+    }
+
+    const result = this.applier.apply(restored, edits);
+    if (!result.ok) return result;
+
+    this.setCurrentGraph(result.graph);
+    return result;
   }
 
   private setCurrentGraph(graph: Graph): void {
@@ -57,4 +65,8 @@ export class GraphStore {
   private reject(reason: string): ApplyResult {
     return { ok: false, reason };
   }
+}
+
+function isEdit(operation: Operation): operation is EditOperation {
+  return operation.type !== "undo";
 }
