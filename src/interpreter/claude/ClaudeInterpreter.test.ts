@@ -19,6 +19,16 @@ function interpreterReturning(parsedOutput: unknown, stopReason = "end_turn") {
   return { interpreter: new ClaudeInterpreter(client), parse };
 }
 
+/** Parses the response content with the output format of the request, as the SDK does. */
+function interpreterAnswering(responseContent: unknown) {
+  const parse = vi.fn().mockImplementation(async (request: { output_config: { format: { parse(content: string): unknown } } }) => ({
+    stop_reason: "end_turn",
+    parsed_output: request.output_config.format.parse(JSON.stringify(responseContent)),
+  }));
+  const client = { messages: { parse } } as unknown as MessagesClient;
+  return new ClaudeInterpreter(client);
+}
+
 function interpreterFailing(error: unknown) {
   const parse = vi.fn().mockRejectedValue(error);
   const client = { messages: { parse } } as unknown as MessagesClient;
@@ -64,64 +74,109 @@ describe("ClaudeInterpreter", () => {
     });
   });
 
-  describe("Interpretation output is operations or an error", () => {
-    it("when the model adds a node without parent, then the operation has no parent id", async () => {
-      const { interpreter } = interpreterReturning({
-        result: { operations: [{ type: "add_node", text: "Subscription", parentId: null }] },
-      });
-      await expect(interpret(interpreter)).resolves.toEqual({ operations: [{ type: "add_node", text: "Subscription" }] });
-    });
-
-    it("when the model adds a node with a parent, then the operation keeps the parent id", async () => {
-      const { interpreter } = interpreterReturning({
-        result: { operations: [{ type: "add_node", text: "Audience", parentId: 1 }] },
-      });
-      await expect(interpret(interpreter, "under 1, add audience")).resolves.toEqual({
-        operations: [{ type: "add_node", text: "Audience", parentId: 1 }],
-      });
-    });
-
-    it("when the model adds several nodes, then all operations are returned in order", async () => {
-      const { interpreter } = interpreterReturning({
+  describe("Interpretation returns operations or an error", () => {
+    it("when the response contains several operations, then they are returned in order", async () => {
+      // given
+      const interpreter = interpreterAnswering({
         result: {
           operations: [
-            { type: "add_node", text: "Monthly", parentId: null },
-            { type: "add_node", text: "Yearly", parentId: null },
+            { type: "add_node", text: "Price", parentId: 1 },
+            { type: "set_text", id: 3, text: "Customers" },
           ],
         },
       });
-      const result = await interpret(interpreter, "price can be monthly or yearly");
+
+      // when
+      const result = await interpret(interpreter);
+
+      // then
       expect(result).toEqual({
         operations: [
-          { type: "add_node", text: "Monthly" },
-          { type: "add_node", text: "Yearly" },
+          { type: "add_node", text: "Price", parentId: 1 },
+          { type: "set_text", id: 3, text: "Customers" },
         ],
       });
     });
-  });
 
-  describe("Undo requests are recognized", () => {
-    it("when the model returns undo, then the result is one undo operation", async () => {
-      const { interpreter } = interpreterReturning({ result: { operations: [{ type: "undo" }] } });
-      await expect(interpret(interpreter, "undo that")).resolves.toEqual({ operations: [{ type: "undo" }] });
+    it("when the response contains each kind of operation, then each one is returned", async () => {
+      // given
+      const interpreter = interpreterAnswering({
+        result: {
+          operations: [
+            { type: "delete_node", id: 4 },
+            { type: "set_parent", id: 5, parentId: 2 },
+            { type: "set_parent", id: 2, parentId: null },
+            { type: "set_focus", id: 3 },
+          ],
+        },
+      });
+
+      // when
+      const result = await interpret(interpreter);
+
+      // then
+      expect(result).toEqual({
+        operations: [
+          { type: "delete_node", id: 4 },
+          { type: "set_parent", id: 5, parentId: 2 },
+          { type: "set_parent", id: 2 },
+          { type: "set_focus", id: 3 },
+        ],
+      });
+    });
+
+    it("when the response adds a node without a parent, then the operation has no parent label", async () => {
+      // given
+      const interpreter = interpreterAnswering({
+        result: { operations: [{ type: "add_node", text: "Product", parentId: null }] },
+      });
+
+      // when
+      const result = await interpret(interpreter);
+
+      // then
+      expect(result).toEqual({ operations: [{ type: "add_node", text: "Product" }] });
+    });
+
+    it("when the response contains undo, then the result is one undo operation", async () => {
+      // given
+      const interpreter = interpreterAnswering({ result: { operations: [{ type: "undo" }] } });
+
+      // when
+      const result = await interpret(interpreter, "undo that");
+
+      // then
+      expect(result).toEqual({ operations: [{ type: "undo" }] });
+    });
+
+    it("when the response has an empty list of operations, then it fails as a malformed response", async () => {
+      // given
+      const interpreter = interpreterAnswering({ result: { operations: [] } });
+
+      // when
+      const failure = interpret(interpreter);
+
+      // then
+      await expect(failure).rejects.toMatchObject({ reason: "malformed-response" });
     });
   });
 
-  describe("Utterances without operations return an explained error", () => {
-    it("when the model returns an error, then its message is returned as is", async () => {
-      const { interpreter } = interpreterReturning({ result: { error: { message: "There was no idea to add." } } });
-      await expect(interpret(interpreter, "hmm, let me think")).resolves.toEqual({
-        error: { message: "There was no idea to add." },
+  describe("Interpretation errors are returned as written", () => {
+    it("when the response is an error, then its message is returned as written", async () => {
+      // given
+      const interpreter = interpreterAnswering({
+        result: { error: { message: "Não havia nenhuma ideia para adicionar." } },
       });
+
+      // when
+      const result = await interpret(interpreter, "hmm, deixa eu pensar");
+
+      // then
+      expect(result).toEqual({ error: { message: "Não havia nenhuma ideia para adicionar." } });
     });
   });
 
   describe("Interpretation failures are reported", () => {
-    it("when the operations list is empty, then it fails as a malformed response", async () => {
-      const { interpreter } = interpreterReturning({ result: { operations: [] } });
-      await expect(interpret(interpreter)).rejects.toMatchObject({ reason: "malformed-response" });
-    });
-
     it("when there is no parsed output, then it fails as a malformed response", async () => {
       const { interpreter } = interpreterReturning(null);
       const error = await interpret(interpreter).catch((caught: unknown) => caught);

@@ -73,10 +73,20 @@ export class ClaudeInterpreter implements Interpreter {
   }
 
   private toOperation(operation: OutputOperation): Operation {
-    if (operation.type === "undo") return { type: "undo" };
-    return operation.parentId === null
-      ? { type: "add_node", text: operation.text }
-      : { type: "add_node", text: operation.text, parentId: operation.parentId };
+    switch (operation.type) {
+      case "add_node":
+        return { type: "add_node", text: operation.text, parentId: operation.parentId ?? undefined };
+      case "delete_node":
+        return { type: "delete_node", id: operation.id };
+      case "set_parent":
+        return { type: "set_parent", id: operation.id, parentId: operation.parentId ?? undefined };
+      case "set_text":
+        return { type: "set_text", id: operation.id, text: operation.text };
+      case "set_focus":
+        return { type: "set_focus", id: operation.id };
+      case "undo":
+        return { type: "undo" };
+    }
   }
 
   /** Most specific first: abort and connection errors are subclasses of APIError in the SDK. */
