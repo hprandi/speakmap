@@ -175,19 +175,6 @@ describe("OperationApplier", () => {
     });
   });
 
-  describe("Deleting an already removed node is not an error", () => {
-    it("when deleting a parent and then its child, then the utterance is applied", () => {
-      // given
-      const graph = sixNodes;
-
-      // when
-      const result = applier.apply(graph, [deleteNode(2), deleteNode(4)]);
-
-      // then
-      expect(idsOf(applied(result))).toEqual([1, 3]);
-    });
-  });
-
   describe("Move node operation", () => {
     it("when moving under another node, then it changes parent and keeps its children", () => {
       // given
@@ -305,6 +292,17 @@ describe("OperationApplier", () => {
 
       // then
       expect(result).toEqual({ ok: false, reason: "Node 9 does not exist." });
+    });
+
+    it("when deleting a node removed earlier in the utterance, then it is rejected", () => {
+      // given
+      const graph = sixNodes;
+
+      // when
+      const result = applier.apply(graph, [deleteNode(2), deleteNode(4)]);
+
+      // then
+      expect(result).toEqual({ ok: false, reason: "Node 4 does not exist." });
     });
 
     it("when renaming a node removed earlier in the utterance, then it is rejected", () => {

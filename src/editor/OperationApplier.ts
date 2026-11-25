@@ -1,5 +1,13 @@
 import type { Graph, GraphNode } from "../domain/Graph";
-import type { Operation, UndoOperation } from "../domain/Operation";
+import type {
+  AddNodeOperation,
+  DeleteNodeOperation,
+  Operation,
+  SetFocusOperation,
+  SetParentOperation,
+  SetTextOperation,
+  UndoOperation,
+} from "../domain/Operation";
 import { IntegrityRules } from "./IntegrityRules";
 
 export type EditOperation = Exclude<Operation, UndoOperation>;
@@ -25,7 +33,7 @@ export class OperationApplier {
 
     const draft: Draft = { nodes: [...graph.nodes], nextId: graph.nextId, createdIds: [] };
     for (const operation of operations) {
-      const failure = this.applyOperation(graph, draft, operation);
+      const failure = this.applyOperation(draft, operation);
       if (failure !== undefined) return this.reject(failure);
     }
 
@@ -35,35 +43,46 @@ export class OperationApplier {
     return { ok: true, graph: result };
   }
 
-  private applyOperation(graph: Graph, draft: Draft, operation: EditOperation): string | undefined {
-    if (operation.type === "add_node") { // AI: não daria para esse `add node` fazer parte do `switch` e toda essa adição aqui ficar isolada em um método, para seguir o padrão dos outros de código e ficar linear?
-      if (operation.parentId === draft.nextId) return `Node ${operation.parentId} does not exist.`;
-      draft.nodes.push(createNode(draft.nextId, operation.text.trim(), operation.parentId));
-      draft.createdIds.push(draft.nextId);
-      draft.nextId += 1;
-      return undefined;
-    }
-
-    const target = draft.nodes.find((node) => node.id === operation.id);
-    if (target === undefined) {
-      const alreadyDeleted = operation.type === "delete_node" && hasNode(graph.nodes, operation.id); // AI: essa regra que a gente adicionou, de que um nodo deletado não dispara outro erro, super complica o código sem necessidade. Eu acho que a gente deveria remover ela e remover da spec também.
-      return alreadyDeleted ? undefined : `Node ${operation.id} does not exist.`;
-    }
-
+  private applyOperation(draft: Draft, operation: EditOperation): string | undefined {
     switch (operation.type) {
+      case "add_node":
+        return this.addNode(draft, operation);
       case "delete_node":
-        this.deleteSubtree(draft, target.id);
-        break;
+        return this.deleteNode(draft, operation);
       case "set_parent":
-        this.replaceNode(draft, createNode(target.id, target.text, operation.parentId));
-        break;
+        return this.setParent(draft, operation);
       case "set_text":
-        this.replaceNode(draft, createNode(target.id, operation.text.trim(), target.parentId));
-        break;
+        return this.setText(draft, operation);
       case "set_focus":
-        draft.focusTargetId = target.id;
-        break;
+        return this.setFocus(draft, operation);
     }
+  }
+
+  private addNode(draft: Draft, operation: AddNodeOperation): string | undefined {
+    if (operation.parentId === draft.nextId) return missingNode(operation.parentId);
+    draft.nodes.push({ id: draft.nextId, text: operation.text.trim(), parentId: operation.parentId });
+    draft.createdIds.push(draft.nextId);
+    draft.nextId += 1;
+    return undefined;
+  }
+
+  private deleteNode(draft: Draft, operation: DeleteNodeOperation): string | undefined {
+    if (!hasNode(draft.nodes, operation.id)) return missingNode(operation.id);
+    this.deleteSubtree(draft, operation.id);
+    return undefined;
+  }
+
+  private setParent(draft: Draft, operation: SetParentOperation): string | undefined {
+    return this.replaceNode(draft, operation.id, (node) => ({ ...node, parentId: operation.parentId }));
+  }
+
+  private setText(draft: Draft, operation: SetTextOperation): string | undefined {
+    return this.replaceNode(draft, operation.id, (node) => ({ ...node, text: operation.text.trim() }));
+  }
+
+  private setFocus(draft: Draft, operation: SetFocusOperation): string | undefined {
+    if (!hasNode(draft.nodes, operation.id)) return missingNode(operation.id);
+    draft.focusTargetId = operation.id;
     return undefined;
   }
 
@@ -82,8 +101,10 @@ export class OperationApplier {
     draft.nodes = draft.nodes.filter((node) => !deletedIds.has(node.id));
   }
 
-  private replaceNode(draft: Draft, replacement: GraphNode): void {
-    draft.nodes = draft.nodes.map((node) => (node.id === replacement.id ? replacement : node));
+  private replaceNode(draft: Draft, id: number, change: (node: GraphNode) => GraphNode): string | undefined {
+    if (!hasNode(draft.nodes, id)) return missingNode(id);
+    draft.nodes = draft.nodes.map((node) => (node.id === id ? change(node) : node));
+    return undefined;
   }
 
   private resolveFocus(graph: Graph, draft: Draft): number | undefined {
@@ -104,8 +125,7 @@ export class OperationApplier {
   }
 
   private convertDraftToGraph(draft: Draft, focusId: number | undefined): Graph {
-    const graph = { nodes: draft.nodes, nextId: draft.nextId };
-    return focusId === undefined ? graph : { ...graph, focusId }; // AI: Can't this be { ..graph, focusId }  only, in a way that we pass focusId=null?
+    return { nodes: draft.nodes, nextId: draft.nextId, focusId };
   }
 
   private reject(reason: string): ApplyResult {
@@ -113,8 +133,8 @@ export class OperationApplier {
   }
 }
 
-function createNode(id: number, text: string, parentId: number | undefined): GraphNode {
-  return parentId === undefined ? { id, text } : { id, text, parentId };
+function missingNode(id: number): string {
+  return `Node ${id} does not exist.`;
 }
 
 function hasNode(nodes: readonly GraphNode[], id: number): boolean {
